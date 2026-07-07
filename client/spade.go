@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-func resolveSpadeURL(httpClient *http.Client, channelLogin string) (string, error) {
+func resolveSpadeURL(httpClient *http.Client, channelLogin, webUA string) (string, error) {
 	channelURL := "https://www.twitch.tv/" + channelLogin
-	html, err := getText(httpClient, channelURL, WebUA)
+	html, err := getText(httpClient, channelURL, webUA)
 	if err != nil {
 		return "", err
 	}
@@ -20,7 +20,7 @@ func resolveSpadeURL(httpClient *http.Client, channelLogin string) (string, erro
 	if settings == "" {
 		return "", fmt.Errorf("spade_url not found for %s", channelLogin)
 	}
-	js, err := getText(httpClient, settings, WebUA)
+	js, err := getText(httpClient, settings, webUA)
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func getText(httpClient *http.Client, u, ua string) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("GET %s status %d", u, resp.StatusCode)
+		return "", &StatusError{Op: "spade-resolve", Status: resp.StatusCode, Body: u}
 	}
 	return string(b), nil
 }
@@ -79,11 +79,9 @@ func extractTrackURL(text string) string {
 }
 
 func extractSettingsJSURL(html string) string {
-	// Look for settings.js asset references used by the Twitch web client.
 	const marker = "settings."
 	idx := strings.Index(html, marker)
 	for idx >= 0 {
-		// walk back to quote start of URL
 		from := idx
 		for from > 0 && html[from] != '"' && html[from] != '\'' {
 			from--

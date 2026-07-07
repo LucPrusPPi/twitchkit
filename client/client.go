@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -25,8 +24,8 @@ const (
 	UserAgent = "Dalvik/2.1.0 (Linux; U; Android 15; SM-G990B Build/AP3A.240905.015.A2) tv.twitch.android.app/25.3.0/2503006"
 	WebUA     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 
-	gqlURL      = "https://gql.twitch.tv/gql"
-	helixURL    = "https://api.twitch.tv/helix"
+	gqlURL       = "https://gql.twitch.tv/gql"
+	helixURL     = "https://api.twitch.tv/helix"
 	integrityURL = "https://passport.twitch.tv/integrity"
 )
 
@@ -43,37 +42,24 @@ type StreamInfo struct {
 
 // DropSession is the current drop watch context for a channel.
 type DropSession struct {
-	DropID           string
-	CurrentMinutes   float64
-	RequiredMinutes  float64
-	GameName         string
-	ChannelName      string
+	DropID          string
+	CurrentMinutes  float64
+	RequiredMinutes float64
+	GameName        string
+	ChannelName     string
 }
 
 // Client is a Twitch GQL/Helix client bound to one auth token.
 type Client struct {
-	http              *http.Client
-	token             string
-	sessionID         string
-	mu                sync.Mutex
-	deviceID          string
-	integrity         string
-	spadeByLogin      map[string]string
-}
-
-// New creates a Client for the given OAuth access token (with or without oauth: prefix).
-func New(token string) *Client {
-	return &Client{
-		http: &http.Client{
-			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConnsPerHost: 4,
-			},
-		},
-		token:        auth.Normalize(token),
-		sessionID:    randomHex(16),
-		spadeByLogin: make(map[string]string),
-	}
+	http         *http.Client
+	token        string
+	sessionID    string
+	userAgent    string
+	webUserAgent string
+	mu           sync.Mutex
+	deviceID     string
+	integrity    string
+	spadeByLogin map[string]string
 }
 
 // Token returns the normalized auth token.
@@ -93,7 +79,7 @@ func (c *Client) EnsureDeviceID() error {
 		return nil
 	}
 	c.mu.Unlock()
-	uid, err := bootstrapUniqueID(c.http, c.token)
+	uid, err := c.bootstrapUniqueID()
 	if err != nil {
 		return err
 	}
@@ -129,7 +115,7 @@ func (c *Client) GQL(body any, userID, channelLogin string) (json.RawMessage, er
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("gql status %d: %s", resp.StatusCode, truncate(string(data), 200))
+		return nil, &StatusError{Op: "gql", Status: resp.StatusCode, Body: truncate(string(data), 200)}
 	}
 	return json.RawMessage(data), nil
 }
@@ -236,7 +222,7 @@ func (c *Client) sendGQLWatch(channelLogin, channelID, broadcastID, userID, game
 		return err
 	}
 	if resp.Data.SendSpadeEvents.StatusCode != 204 {
-		return fmt.Errorf("sendSpadeEvents status %d", resp.Data.SendSpadeEvents.StatusCode)
+		return &StatusError{Op: "gql-spade", Status: resp.Data.SendSpadeEvents.StatusCode}
 	}
 	return nil
 }
@@ -261,7 +247,7 @@ func (c *Client) sendSpadeWatch(channelLogin, channelID, broadcastID, userID, ga
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Cookie", c.cookieHeader(userID))
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -273,7 +259,7 @@ func (c *Client) sendSpadeWatch(channelLogin, channelID, broadcastID, userID, ga
 		c.mu.Lock()
 		delete(c.spadeByLogin, login)
 		c.mu.Unlock()
-		return fmt.Errorf("spade watch status %d", resp.StatusCode)
+		return &StatusError{Op: "spade", Status: resp.StatusCode}
 	}
 	return nil
 }
@@ -286,7 +272,7 @@ func (c *Client) resolveSpadeURL(channelLogin string) (string, error) {
 	}
 	c.mu.Unlock()
 
-	u, err := resolveSpadeURL(c.http, channelLogin)
+	u, err := resolveSpadeURL(c.http, channelLogin, c.webUserAgent)
 	if err != nil {
 		return "", err
 	}
@@ -303,7 +289,7 @@ func (c *Client) fetchIntegrity() error {
 	}
 	req.Header.Set("Client-ID", ClientID)
 	req.Header.Set("Authorization", "OAuth "+c.token)
-	req.Header.Set("User-Agent", WebUA)
+	req.Header.Set("User-Agent", c.webUserAgent)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
@@ -311,7 +297,7 @@ func (c *Client) fetchIntegrity() error {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("integrity status %d", resp.StatusCode)
+		return &StatusError{Op: "integrity", Status: resp.StatusCode, Body: truncate(string(body), 200)}
 	}
 	var v struct {
 		Token string `json:"token"`
@@ -337,7 +323,7 @@ func (c *Client) applyGQLHeaders(req *http.Request, userID, channelLogin string)
 	req.Header.Set("Client-ID", ClientID)
 	req.Header.Set("Authorization", "OAuth "+c.token)
 	req.Header.Set("Client-Session-Id", session)
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("X-Device-Id", device)
 	req.Header.Set("Cookie", c.cookieHeader(userID))
 	req.Header.Set("Content-Type", "application/json")
@@ -368,32 +354,32 @@ func (c *Client) cookieHeader(userID string) string {
 
 func watchProperties(channelLogin, channelID, broadcastID, userID, gameName, gameID string) map[string]any {
 	return map[string]any{
-		"broadcast_id":  broadcastID,
-		"channel_id":    channelID,
-		"channel":       channelLogin,
-		"client_time":   time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
-		"game":          gameName,
-		"game_id":       gameID,
-		"hidden":        false,
-		"is_live":       true,
-		"live":          true,
-		"location":      "channel",
-		"logged_in":     true,
+		"broadcast_id":   broadcastID,
+		"channel_id":     channelID,
+		"channel":        channelLogin,
+		"client_time":    time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"game":           gameName,
+		"game_id":        gameID,
+		"hidden":         false,
+		"is_live":        true,
+		"live":           true,
+		"location":       "channel",
+		"logged_in":      true,
 		"minutes_logged": 1,
-		"muted":         false,
-		"player":        "site",
-		"user_id":       userID,
+		"muted":          false,
+		"player":         "site",
+		"user_id":        userID,
 	}
 }
 
-func bootstrapUniqueID(httpClient *http.Client, token string) (string, error) {
+func (c *Client) bootstrapUniqueID() (string, error) {
 	req, err := http.NewRequest(http.MethodGet, "https://www.twitch.tv", nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", UserAgent)
-	req.Header.Set("Cookie", "auth-token="+token)
-	resp, err := httpClient.Do(req)
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Cookie", "auth-token="+c.token)
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -404,7 +390,7 @@ func bootstrapUniqueID(httpClient *http.Client, token string) (string, error) {
 			return uid, nil
 		}
 	}
-	return "", fmt.Errorf("twitch.tv bootstrap did not return unique_id cookie")
+	return "", &StatusError{Op: "bootstrap", Status: resp.StatusCode, Body: "unique_id cookie missing"}
 }
 
 func parseSetCookie(setCookie, name string) string {

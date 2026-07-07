@@ -2,7 +2,6 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -104,7 +103,7 @@ func (c *Client) helixGet(path string, query url.Values) (json.RawMessage, error
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("helix %s status %d: %s", path, resp.StatusCode, truncate(string(data), 200))
+		return nil, &StatusError{Op: "helix", Status: resp.StatusCode, Body: truncate(string(data), 200)}
 	}
 	return json.RawMessage(data), nil
 }
