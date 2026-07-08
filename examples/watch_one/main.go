@@ -59,17 +59,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "drops streams: %v\n", err)
 			os.Exit(1)
 		}
-		if len(list) == 0 {
+		stream = client.PickTopStream(list, "")
+		if stream == nil {
 			fmt.Fprintf(os.Stderr, "no live drops streams for %q\n", game)
 			os.Exit(1)
 		}
-		best := list[0]
-		for _, s := range list[1:] {
-			if s.ViewerCount > best.ViewerCount {
-				best = s
-			}
-		}
-		stream = &best
 	}
 	fmt.Printf("watching %s — %s (%d viewers)\n", stream.UserLogin, stream.GameName, stream.ViewerCount)
 
