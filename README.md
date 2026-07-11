@@ -76,8 +76,8 @@ c, err := client.NewWithOptions(token, client.Options{
 
 ## Errors
 
-- `auth.ErrInvalidToken` / `auth.IsInvalid(err)` — stop farming that token.
-- `client.StatusError` — HTTP status from GQL/Helix/spade; `client.IsTransient(err)` for retry decisions.
+- `auth.ErrInvalidToken` / `auth.IsInvalid(err)` - stop farming that token.
+- `client.StatusError` - HTTP status from GQL/Helix/spade; `client.IsTransient(err)` for retry decisions.
 - `retry.Do` retries transient failures and never retries invalid tokens.
 
 ## C ABI (optional)
@@ -97,4 +97,4 @@ Header: [`include/twitchkit.h`](include/twitchkit.h)
 
 ## License
 
-MIT — use it, fork it, ship your own farmer.
+MIT - use it, fork it, ship your own farmer.

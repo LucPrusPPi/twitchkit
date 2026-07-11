@@ -65,7 +65,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	fmt.Printf("watching %s — %s (%d viewers)\n", stream.UserLogin, stream.GameName, stream.ViewerCount)
+	fmt.Printf("watching %s - %s (%d viewers)\n", stream.UserLogin, stream.GameName, stream.ViewerCount)
 
 	if inv, err := c.Inventory(info.UserID); err == nil {
 		p := drops.ParseInventoryProgress(inv, game)
@@ -105,7 +105,7 @@ func main() {
 	}()
 
 	target := watch.FromStream(*stream, info.UserID)
-	fmt.Println("watch loop every 55s — Ctrl+C to stop")
+	fmt.Println("watch loop every 55s - Ctrl+C to stop")
 	if err := watch.Loop(ctx, c, target, 55*time.Second); err != nil && ctx.Err() == nil {
 		fmt.Fprintf(os.Stderr, "watch: %v\n", err)
 		os.Exit(1)

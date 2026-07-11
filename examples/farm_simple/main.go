@@ -66,7 +66,7 @@ func main() {
 	})
 	if err != nil {
 		if auth.IsInvalid(err) {
-			log.Fatalf("token rejected — re-auth required: %v", err)
+			log.Fatalf("token rejected - re-auth required: %v", err)
 		}
 		log.Fatalf("validate: %v", err)
 	}
@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("watching %s — %s (%d viewers)", stream.UserLogin, stream.GameName, stream.ViewerCount)
+	log.Printf("watching %s - %s (%d viewers)", stream.UserLogin, stream.GameName, stream.ViewerCount)
 
 	if inv, err := c.Inventory(info.UserID); err == nil {
 		p := drops.ParseInventoryProgress(inv, game)
@@ -154,7 +154,7 @@ func main() {
 	}()
 
 	target := watch.FromStream(*stream, info.UserID)
-	log.Print("minute-watched every 55s — Ctrl+C to stop")
+	log.Print("minute-watched every 55s - Ctrl+C to stop")
 	err = watch.Loop(ctx, c, target, 55*time.Second)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("watch: %v", err)
