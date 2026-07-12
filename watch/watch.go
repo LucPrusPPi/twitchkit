@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/LucPrusPPi/twitchkit/client"
+	"github.com/LucPrusPPi/twitchkit/retry"
 )
 
 // Target identifies what to farm.
@@ -31,6 +32,7 @@ func FromStream(s client.StreamInfo, userID string) Target {
 
 // Loop sends minute-watched events until ctx is cancelled.
 // interval defaults to 55s when <= 0 (Twitch client cadence).
+// Transient send failures are retried a few times; permanent errors stop the loop.
 func Loop(ctx context.Context, c *client.Client, t Target, interval time.Duration) error {
 	if interval <= 0 {
 		interval = 55 * time.Second
@@ -38,7 +40,13 @@ func Loop(ctx context.Context, c *client.Client, t Target, interval time.Duratio
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	if err := c.SendWatch(t.ChannelLogin, t.ChannelID, t.BroadcastID, t.UserID, t.GameName, t.GameID); err != nil {
+	send := func() error {
+		return retry.Do(ctx, retry.Config{Attempts: 3, Base: 400 * time.Millisecond}, func() error {
+			return c.SendWatch(t.ChannelLogin, t.ChannelID, t.BroadcastID, t.UserID, t.GameName, t.GameID)
+		})
+	}
+
+	if err := send(); err != nil {
 		return err
 	}
 	for {
@@ -46,7 +54,7 @@ func Loop(ctx context.Context, c *client.Client, t Target, interval time.Duratio
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if err := c.SendWatch(t.ChannelLogin, t.ChannelID, t.BroadcastID, t.UserID, t.GameName, t.GameID); err != nil {
+			if err := send(); err != nil {
 				return err
 			}
 		}
