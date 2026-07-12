@@ -97,4 +97,4 @@ Header: [`include/twitchkit.h`](include/twitchkit.h)
 
 ## License
 
-MIT - use it, fork it, ship your own farmer.
+MIT. Use it, fork it, ship your own farmer.
