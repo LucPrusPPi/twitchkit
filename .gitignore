@@ -1,0 +1,28 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.a
+/twitchkit.h
+!include/twitchkit.h
+
+# Build / test
+/bin/
+/dist/
+*.test
+coverage.out
+*.out
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets / local
+.env
+*.token
+accounts.txt
