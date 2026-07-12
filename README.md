@@ -1,10 +1,14 @@
 # twitchkit
 
-Twitch Drops **client kit** for people who build their own farmers.
+Build your own **Twitch Drops farmer** in Go.
 
-Go module for day-to-day use. Optional C ABI (`capi`) if you need to embed the same logic in C#, C++, Python, etc.
+Minute-watched · inventory · claim · PubSub progress · Helix stream pick.  
+Optional **C ABI** so the same client embeds into C#, C++, Python, or anything that can call a `.dll` / `.so`.
 
-This is not an official Twitch SDK. GQL hashes, PubSub topics, and spade URLs can change. Respect Twitch ToS.
+> Not an official Twitch SDK. Not a Helix chatbot package.  
+> This is the drops pipeline: GQL + spade + `user-drop-events`.
+
+Keywords people search for: `twitch drops`, `drops farmer`, `minute watched`, `twitch gql`, `twitch pubsub`, `go twitch library`.
 
 ## What you get
 
@@ -20,7 +24,7 @@ This is not an official Twitch SDK. GQL hashes, PubSub topics, and spade URLs ca
 | Pick busiest stream | `client.PickTopStream` |
 | Proxy / timeout / UA | `client.NewWithOptions` |
 
-Not included on purpose: multi-account orchestration, UI, databases, license servers.
+Not included on purpose: multi-account orchestration, UI, databases, license servers. You own the farm logic.
 
 ## Install
 
@@ -93,4 +97,4 @@ Header: [`include/twitchkit.h`](include/twitchkit.h)
 
 ## License
 
-MIT
+MIT — use it, fork it, ship your own farmer.
